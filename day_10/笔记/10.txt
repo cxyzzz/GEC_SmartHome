@@ -1,0 +1,64 @@
+	多线程
+“并发”执行，提高效率
+
+创建线程
+	SYNOPSIS
+       #include <pthread.h>
+		pthread_t pid;
+       int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
+                          void *(*start_routine) (void *), void *arg);
+			thread：线程ID
+			attr:线程的属性，一般默认NULL
+			start_routine:线程函数
+				创建线程成功之后，会增加一条执行的路线：就是线程函数里的代码
+				线程函数不是任意函数都可以，而是有一定的要求：
+					1，返回值类型必须是void *
+					2，函数必须有且仅有一个参数，并且这个参数的类型是void *
+			arg：线程函数的参数
+			
+			
+		使用线程函数时，不仅需要加头文件，还需要在编译的时候后面加 -pthread
+		(arm-linux-)gcc ***.c -o *** -pthread
+		
+	   #include <pthread.h>
+		等待线程为Idthread的线程结束
+       int pthread_join(pthread_t thread, void **retval);
+		thread：要等待的那个线程的ID
+		retval：用来保存这个线程结束的一些信息，如果这些信息对你不重要，那么就写NULL
+ 	
+	项目的要求:
+		1，运行稳定，无bug
+		2，显示小组成员姓名和学号
+		3，正确的获取烟雾浓度，并且用它控制蜂鸣器
+		4，正确获取光照，温湿度，气压，海拔
+			用光照控制灯泡亮灭
+			在屏幕上显示温湿度气压海拔
+			温度：27
+			湿度：***
+			气压：***
+			海拔：***
+		5，实现电子相册
+		
+		6，布局美观
+		7，代码美观规范
+		
+		礼拜六上午之前要完成
+		下午上课的时候我会检查
+		
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	
+	
+
