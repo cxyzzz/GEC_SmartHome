@@ -33,6 +33,8 @@ GEC智能家居生产实习。使用的设备为 GEC6818 arm 开发板，开发�
 ## [0x05 在屏幕上显示位图](https://github.com/cxyzzz/GEC_smart_home/tree/master/day_5)
 
 1. 输入一张图片名，在屏幕上显示
+
+BMP 文件格式：
 ![bmp文件格式.png](https://i.loli.net/2019/06/27/5d14ba5dd16d076060.png)
 
 ## [0x06 读取触摸屏数据](https://github.com/cxyzzz/GEC_smart_home/tree/master/day_6)
