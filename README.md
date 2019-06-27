@@ -57,3 +57,7 @@ GE6818 arm 开发板蜂鸣器文件 /dev/beep ，通过 ioctl 函数控制。
 
 1. 创建线程 pthread_create
 2. 等待线程结束 pthread_join
+
+参考资料：
+
+1. [Linux中pthread线程使用详解 https://blog.csdn.net/joysonqin/article/details/70237422](https://blog.csdn.net/joysonqin/article/details/70237422)
