@@ -1,6 +1,6 @@
 # GEC_smart_home
 
-GEC智能家居生产实习。使用的设备为 GEC6818 arm 开发板，开发环境为 Ubuntu 14.04
+GEC 智能家居生产实习。使用的设备为 GEC6818 arm 开发板，开发环境为 Ubuntu 14.04
 
 ## [0x01 复习 C 语言基础](https://github.com/cxyzzz/GEC_smart_home/tree/master/day_1)
 
