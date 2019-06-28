@@ -21,10 +21,10 @@
 /*
 p ，整型指针，屏幕帧缓冲驱动文件内存映射后的指针
 toggle 整型，LED 灯手动开关控制标志
-red blue black white 整型，RGB 颜色
+red blue gray black white 整型，RGB 颜色
 picture 字符型数组指针，存储所有图片路径
 */
-int * p, toggle = 0 ,red = 0x00FF0000, blue = 0x000000FF, black = 0x001F2F3F, white = 0x00FFFFFF;
+int * p, toggle = 0 ,red = 0x00FF0000, blue = 0x000000FF,gray = 0x00AFBFCF, black = 0x001F2F3F, white = 0x00FFFFFF;
 char * picture[] = {"/hut/1.bmp","/hut/2.bmp", "/hut/3.bmp", "/hut/4.bmp", "/hut/5.bmp", "/hut/6.bmp"}; 
 
 /*  画点函数
@@ -203,7 +203,7 @@ struct ts
 
 void * ts_read(void *arg)
 {
-    int x0 = 120, y0 = 400;
+    int x0 = 130, y0 = 400;
     struct ts *ts_sp = malloc(sizeof(struct ts));
 
     int fd = open("/dev/input/event0", O_RDONLY);
@@ -220,7 +220,7 @@ void * ts_read(void *arg)
     struct ts start, end; 
     display_bg(x0, y0, 480, 800, white);
     display_picture(x0, y0, picture[i]);
-    display_circle(400, 0, 440, 50, 30, red);        // 显示 LED 灯开关
+    display_circle(400, 0, 440, 50, 30, gray);        // 显示 LED 灯开关
 
     while(1)
     {
@@ -337,14 +337,14 @@ void * ts_read(void *arg)
                 printf("toggle = %d\n", toggle);
                 display_picture(130, 200, "/hut/on.bmp");
                 usleep(500);
-                display_circle(400, 0, 440, 50, 30, blue);        // LED 灯开关打开
+                display_circle(400, 0, 440, 50, 30, red);        // LED 灯开关打开
             }
             else
             {
                 printf("toggle = %d\n", toggle);
                 display_picture(130, 200, "/hut/off.bmp");
                 usleep(500);
-                display_circle(400, 0, 440, 50, 30, red);        // LED 灯开关关闭
+                display_circle(400, 0, 440, 50, 30, gray);        // LED 灯开关关闭
             }        
         }
         
@@ -568,6 +568,17 @@ void * gy_39(void *arg)
 // 显示姓名班级学号等信息
 void display_info()
 {
+    display_picture(5,2,"/hut/hut_logo.bmp");    // HUT logo
+    display_picture(5,55,"/hut/gec_logo.bmp");    // GEC logo
+
+	display_word(0x0a0a0a,25,216,zhi,48,48);//智能家居系统
+	display_word(0x0a0a0a,25,280,neng,48,48);
+	display_word(0x0a0a0a,25,344,jia,48,48);
+	display_word(0x0a0a0a,25,408,ju,48,48);
+	display_word(0x0a0a0a,25,472,xi,48,48);
+	display_word(0x0a0a0a,25,536,tong,48,48);
+	display_word(0x0a0a0a,25,536,tong,48,48);
+
 	display_word(0x0a0a0a,125,16,chen, 16, 16);//名字
 	display_word(0x0a0a0a,125,32,ton,16, 16);
 	display_word(0x0a0a0a,125,48,xin,16,16);
@@ -596,14 +607,6 @@ void display_info()
 	display_word(0x0a0a0a,241,64,maohao,16,16);
 	
 	display_digit(blue,241,80, 16408200143LL,8,16);//学号
-	
-	display_word(0x0a0a0a,25,216,zhi,48,48);//智能家居系统
-	display_word(0x0a0a0a,25,280,neng,48,48);
-	display_word(0x0a0a0a,25,344,jia,48,48);
-	display_word(0x0a0a0a,25,408,ju,48,48);
-	display_word(0x0a0a0a,25,472,xi,48,48);
-	display_word(0x0a0a0a,25,536,tong,48,48);
-	display_word(0x0a0a0a,25,536,tong,48,48);
 }
 
 int main()

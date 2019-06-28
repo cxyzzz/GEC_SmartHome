@@ -74,10 +74,10 @@ void display_picture(int x0, int y0, char file[])
     lseek(bmp_fd, 54, SEEK_SET);
     read(bmp_fd, color_buf, w*h*m/8);
     
-    int n = 0;
-    for(int i = h-1+x0; i >= x0; i--)
+    int i, j, n = 0;
+    for(i = h-1+x0; i >= x0; i--)
     {
-        for(int j = y0; j < w + y0; j++)
+        for(j = y0; j < w + y0; j++)
         {
            int color = color_buf[2+3*n] << 16 | color_buf[1+3*n] << 8 | color_buf[0+3*n];
            display_point(i, j, color);
