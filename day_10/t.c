@@ -13,19 +13,34 @@
 #include "data.h"       // 存储点阵数据
 #include <pthread.h>
 
-//6818串口所对应的文件名
+// 6818 串口所对应的文件名
 #define COM2 "/dev/ttySAC1"
 #define COM3 "/dev/ttySAC2"
 #define COM4 "/dev/ttySAC3"
 
-int * p, blue = 0x000000FF, black = 0x001F2F3F, white = 0x00FFFFFF;
+/*
+p ，整型指针，屏幕帧缓冲驱动文件内存映射后的指针
+toggle 整型，LED 灯手动开关控制标志
+red blue black white 整型，RGB 颜色
+picture 字符型数组指针，存储所有图片路径
+*/
+int * p, toggle = 0 ,red = 0x00FF0000, blue = 0x000000FF, black = 0x001F2F3F, white = 0x00FFFFFF;
 char * picture[] = {"/hut/1.bmp","/hut/2.bmp", "/hut/3.bmp", "/hut/4.bmp", "/hut/5.bmp", "/hut/6.bmp"}; 
 
+/*  画点函数
+x 整型，纵向坐标
+y 整型，横向坐标
+*/
 void display_point(int x, int y, int color)
 {
     *(p + x * 800 + y) = color;
 }
 
+/*  绘制背景色
+x0 整型，起点纵向坐标；y0 整型，起点横向坐标
+x1 整型，终点纵向坐标；y1 整型，终点横向坐标
+color 整型，所画背景颜色
+*/
 void display_bg(int x0, int y0,int x1, int y1 , int color)
 {
     int i, j;
@@ -38,6 +53,37 @@ void display_bg(int x0, int y0,int x1, int y1 , int color)
     }    
 }
 
+/*  画实心圆
+x0 整型，起点纵向坐标；y0 整型，起点横向坐标
+x 整型，圆心纵向坐标；y 整型，圆心横向坐标
+color 整型，所画圆颜色
+*/
+void display_circle(int x0, int y0, int x, int y, int r, int color)
+{
+    int i, j;
+    for(i = x0; i < 480; i++)
+    {
+        for(j = y0; j < 800; j++)
+        {
+            if((i - x)*(i - x)+(j - y)*(j - y) <= r * r)
+            {
+                display_point(i, j, color);
+            }
+            else
+            {
+                display_point(i, j, white);
+            }
+        }
+    }
+}
+
+/*  显示字符
+color 整型，所画字符颜色
+x0 整型，起点纵向坐标；y0 整型，起点横向坐标
+word 字符型数组，存储所画字符点阵数据
+w 整型，字符宽度；h 整型，字符高度
+w*h/8 字符点阵数据个数，一个点阵数据 8 位
+*/
 void display_word(int color,int x0, int y0, char word[], int w, int h)
 {
     int i, j, x, y;
@@ -56,7 +102,13 @@ void display_word(int color,int x0, int y0, char word[], int w, int h)
     }
 }
 
-void display_digit(int color, int x0, int y0, int number, int w, int h)
+/*  显示任意数字（最大 19 位）
+color 整型，所画数字颜色
+x0 整型，起点纵向坐标；y0 整型，起点横向坐标
+number 长整型，所画数字
+w 整型，数字字符宽度；h 整型，数字字符高度
+*/
+void display_digit(int color, int x0, int y0, long long int number, int w, int h)
 {
     int i, j, m = 0, a[100] = {0};
     if(number == 0)
@@ -79,7 +131,10 @@ void display_digit(int color, int x0, int y0, int number, int w, int h)
     }
 }
 
-
+/*  显示位图
+x0 整型，起点纵向坐标；y0 整型，起点横向坐标
+file 字符型数组，存储所画图片路径
+*/
 void display_picture(int x0, int y0, char file[])
 {
     printf("display picture %s\n", file);
@@ -93,18 +148,18 @@ void display_picture(int x0, int y0, char file[])
         return;
     }
     
-    lseek(bmp_fd, 0x12, SEEK_SET);
-    read(bmp_fd, &w, 4);
-    lseek(bmp_fd, 0x16, SEEK_SET);
-    read(bmp_fd, &h, 4);    
-    lseek(bmp_fd, 0x1C, SEEK_SET);
-    read(bmp_fd, &m, 2);
+    lseek(bmp_fd, 0x12, SEEK_SET);  // 将光标移动到存储位图宽度处
+    read(bmp_fd, &w, 4);    // 读取位图宽度
+    lseek(bmp_fd, 0x16, SEEK_SET);  // 将光标移动到存储位图高度处
+    read(bmp_fd, &h, 4);    // 读取位图高度    
+    lseek(bmp_fd, 0x1C, SEEK_SET);  // 将光标移动到存储位图图像色深处
+    read(bmp_fd, &m, 2);    // 读取位图图像色深
     
    // printf("w = %d\n", w);
    // printf("h = %d\n", h);
    // printf("m = %d\n", m);
     
-    char color_buf[w*h*m/8];
+    char color_buf[w*h*m/8];    // w*h*m/8 计算位图字节数
     lseek(bmp_fd, 54, SEEK_SET);
     read(bmp_fd, color_buf, w*h*m/8);
     
@@ -117,6 +172,7 @@ void display_picture(int x0, int y0, char file[])
            display_point(i, j, color);
            n++;
         }
+        usleep(500);
     }
     
     close(bmp_fd);
@@ -129,7 +185,7 @@ struct ts
     int y;
 };
 
-/*
+/*  屏幕触摸函数，控制相册图片的切换和 LED 灯手动开关
  * Event types
  
 #define EV_SYN			0x00
@@ -162,10 +218,10 @@ void * ts_read(void *arg)
     
     int i = 0;      // 图片文件名
     struct ts start, end; 
-    // loop_display_picture(i);
     display_bg(x0, y0, 480, 800, white);
     display_picture(x0, y0, picture[i]);
-    
+    display_circle(400, 0, 440, 50, 30, red);        // 显示 LED 灯开关
+
     while(1)
     {
         int r = read(fd, &buf, sizeof(buf));
@@ -201,84 +257,112 @@ void * ts_read(void *arg)
         // 手指离开屏幕后进行数据处理
         if(buf.type == EV_KEY && buf.code == BTN_TOUCH && buf.value == 0)
         {
-            if(abs(end.x - start.x) > abs(end.y - start.y))
+            if(start.x >= 400 && start.y >= 120)    // 限制只有在图片区域的滑动才能切换图片
             {
-                if(end.x > start.x)
+                if(abs(end.x - start.x) > abs(end.y - start.y))     // 判断左右滑
                 {
-                    printf("right\n");
-                    if(i == 0)
+                    if(end.x > start.x)
                     {
-                        i = 5;
+                        printf("right\n");
+                        if(i -1 < 0)
+                        {
+                            i = sizeof(picture)/sizeof(char *) - 1;
+                        }
+                        else
+                        {
+                            i--;
+                        }
+                        display_bg(x0, y0, 480, 800, white);
+                        display_picture(x0, y0, picture[i]);
                     }
-                    else
+                    else if(end.x < start.x)
                     {
-                        i--;
+                        printf("left\n");
+                        if(i + 1 > sizeof(picture)/sizeof(char *) - 1)
+                        {
+                            i = 0;
+                        }
+                        else
+                        {
+                            i++;
+                        }
+                        display_bg(x0, y0, 480, 800, white);
+                        display_picture(x0, y0, picture[i]);
+                        
                     }
-                    display_bg(x0, y0, 480, 800, white);
-                    display_picture(x0, y0, picture[i]);
                 }
-                else if(end.x < start.x)
+                else if(abs(end.x - start.x) < abs(end.y - start.y))        // 判断上下滑
                 {
-                    printf("left\n");
-                    if(i + 1 > 5)
+                    if(end.y > start.y)
                     {
-                        i = 0;
+                        printf("down\n");
+                        if(i -1 < 0)
+                        {
+                            i = sizeof(picture)/sizeof(char *) - 1;
+                        }
+                        else
+                        {
+                            i--;
+                        }
+                        display_bg(x0, y0, 480, 800, white);
+                        display_picture(x0, y0, picture[i]);
                     }
-                    else
+                    else if(end.y < start.y)
                     {
-                        i++;
+                        printf("up\n");
+                        if(i + 1 > sizeof(picture)/sizeof(char *) - 1)
+                        {
+                            i = 0;
+                        }
+                        else
+                        {
+                            i++;
+                        }
+                        display_bg(x0, y0, 480, 800, white);
+                        display_picture(x0, y0, picture[i]);
                     }
-                    display_bg(x0, y0, 480, 800, white);
-                    display_picture(x0, y0, picture[i]);
-                    
                 }
-            }
-            else if(abs(end.x - start.x) < abs(end.y - start.y))
-            {
-                if(end.y > start.y)
-                {
-                    printf("down\n");
-                    if(i == 0)
-                    {
-                        i = 5;
-                    }
-                    else
-                    {
-                        i--;
-                    }
-                    display_bg(x0, y0, 480, 800, white);
-                    display_picture(x0, y0, picture[i]);
-                }
-                else if(end.y < start.y)
-                {
-                    printf("up\n");
-                    if(i + 1 > 5)
-                    {
-                        i = 0;
-                    }
-                    else
-                    {
-                        i++;
-                    }
-                    display_bg(x0, y0, 480, 800, white);
-                    display_picture(x0, y0, picture[i]);
-                }
-            }
         
+            }
+            
         printf("start:(%d, %d),end:(%d, %d)\n\n", start.x, start.y, end.x, end.y);
+        
+        // LED 手动开关
+        if(start.x >= 0 && end.x <= 100 && start.y >= 400 && end.y <= 480)
+        {
+            toggle = ~toggle;
+            
+            if(toggle)
+            {
+                printf("toggle = %d\n", toggle);
+                display_picture(130, 200, "/hut/on.bmp");
+                usleep(500);
+                display_circle(400, 0, 440, 50, 30, blue);        // LED 灯开关打开
+            }
+            else
+            {
+                printf("toggle = %d\n", toggle);
+                display_picture(130, 200, "/hut/off.bmp");
+                usleep(500);
+                display_circle(400, 0, 440, 50, 30, red);        // LED 灯开关关闭
+            }        
+        }
         
         start.x = -1;
         start.y = -1; 
         }
     }
     
-    close(fd);}
+    close(fd);
+}
 
+/*  串口初始化
+file 字符型指针，存储串口文件路径
+speed 整型，存储串口波特率
+*/
 int serial_init(char *file,int speed)
 {
-	/*
-		打开串口文件
-	*/
+	/* 打开串口文件 */
     int fd = open(file,O_RDWR);
     if(fd == -1)
     {
@@ -286,19 +370,19 @@ int serial_init(char *file,int speed)
         return -1;
     }
 	
-    /*定义串口属性结构体*/
+    /* 定义串口属性结构体 */
     struct termios myserial;
-    memset(&myserial,0,sizeof(myserial));//清零
+    memset(&myserial,0,sizeof(myserial));// 清零
 	
-	/*设置控制模式 本地连接  使能接收*/
+	/* 设置控制模式 本地连接  使能接收 */
     myserial.c_cflag |= (CLOCAL | CREAD); 
-    myserial.c_cflag &=  ~CSIZE; //清空数据位
-    myserial.c_cflag &= ~CRTSCTS; //无硬件控制流
-    myserial.c_cflag |= CS8; //数据位 8
-    myserial.c_cflag &= ~CSTOPB; //停止位 1
-    myserial.c_cflag &= ~PARENB; //不要校验
+    myserial.c_cflag &=  ~CSIZE; // 清空数据位
+    myserial.c_cflag &= ~CRTSCTS; // 无硬件控制流
+    myserial.c_cflag |= CS8; // 数据位 8
+    myserial.c_cflag &= ~CSTOPB; // 停止位 1
+    myserial.c_cflag &= ~PARENB; // 不要校验
 
-    /*设置波特率*/
+    /* 设置波特率 */
 	switch(speed)
 	{
 		case 9600:
@@ -315,15 +399,15 @@ int serial_init(char *file,int speed)
 			break;
 	}
 	
-    /*刷新输出队列，清除正接收的数据*/
+    /* 刷新输出队列，清除正接收的数据 */
     tcflush(fd,TCIFLUSH);
 
-    /*更改配置*/
+    /* 更改配置 */
     tcsetattr(fd,TCSANOW,&myserial);
 	
     return fd;
 }
-
+/* 烟雾传感器 */
 void * yanwu(void *arg)
 {
     int fd = serial_init(COM2, 9600);
@@ -351,7 +435,7 @@ void * yanwu(void *arg)
         {
             int n = r_buf[2]<<8 | r_buf[3];
             printf("n = %d\n", n);
-            if(n > 138)
+            if(n > 138)     // 烟雾浓度超过一定值蜂鸣器报警
             {
                 ioctl(fd1, 0, 1);
                 sleep(3);
@@ -370,6 +454,9 @@ void * yanwu(void *arg)
     close(fd);
     return 0;
 }
+
+/*  GY-39 传感器
+*/
 void * gy_39(void *arg)
 {
 /*    
@@ -387,11 +474,10 @@ void * gy_39(void *arg)
 				等于帧头加上指令，只保存低8位
 			0xa5 + 0x81  -> 0x26
 */
-   int fd = serial_init(COM3, 9600);
-   int m = 2;
+    int fd = serial_init(COM3, 9600);
+    int m = 2;
     while(1)
     {
-
         char w_buf[][3] ={{0xa5, 0x81, 0x26}, {0xa5, 0x82, 0x27}, {0xa5, 0x83, 0x28}};
         int Lux = 0, T = 0, P = 0, Hum = 0, H = 0;
         int t = write(fd, w_buf[m], 3);
@@ -423,58 +509,101 @@ void * gy_39(void *arg)
         printf("Lux = %d, T = %d, P = %d, Hum = %d, H = %d\n", Lux, T, P, Hum, H);
         sleep(1);
         
-            if(Lux < 6)
-            {
-                display_picture(130, 200, "/hut/on.bmp");
-            }
-            else
-            {
-                display_picture(130, 200, "/hut/off.bmp");
-            }
+        // 当关照强度低于一定值且手动开关关闭时打开灯
+        if(Lux < 6 && toggle == 0)
+        {
+            display_picture(130, 200, "/hut/on.bmp");
+        }
+        else if(Lux >= 6 && toggle == 0)
+        {
+            display_picture(130, 200, "/hut/off.bmp");
+        }
             
-            display_bg(270, 0, 480, 200, white);
+        display_bg(270, 0, 400, 200, white);
             
-            // 光强
-            display_word(black, 270, 10, guan, 16, 16);
-            display_word(black, 270, 26, qian, 16, 16);
-            display_word(black, 270, 42, maohao, 16, 16);            
-            display_digit(blue, 270, 58, Lux, 8, 16);
-            display_word(blue, 270, 82, L, 8, 16);
-            display_word(blue, 270, 90, U, 8, 16);
-            display_word(blue, 270, 98, X, 8, 16);
+        // 光强
+        display_word(black, 270, 10, guan, 16, 16);
+        display_word(black, 270, 26, qian, 16, 16);
+        display_word(black, 270, 42, maohao, 16, 16);            
+        display_digit(blue, 270, 58, Lux, 8, 16);
+        display_word(blue, 270, 82, L, 8, 16);
+        display_word(blue, 270, 90, U, 8, 16);
+        display_word(blue, 270, 98, X, 8, 16);
             
-            // 温度
-            display_word(black, 296, 10, wen, 16, 16);
-            display_word(black, 296, 26, du, 16, 16);
-            display_word(black, 296, 42, maohao, 16, 16);
-            display_digit(blue, 296, 58, T, 8, 16);
-            display_word(blue, 296, 82, C, 16, 16);
+        // 温度
+        display_word(black, 296, 10, wen, 16, 16);
+        display_word(black, 296, 26, du, 16, 16);
+        display_word(black, 296, 42, maohao, 16, 16);
+        display_digit(blue, 296, 58, T, 8, 16);
+        display_word(blue, 296, 82, C, 16, 16);
  
-            // 气压
-            display_word(black, 348, 10, qi, 16, 16);
-            display_word(black, 348, 26, ya, 16, 16);
-            display_word(black, 348, 42, maohao, 16, 16);
-            display_digit(blue, 348, 58, P, 8, 16);   
-            display_word(blue, 348, 106, _P, 8, 16);
-            display_word(blue, 348, 114, A, 8, 16);
+        // 气压
+        display_word(black, 348, 10, qi, 16, 16);
+        display_word(black, 348, 26, ya, 16, 16);
+        display_word(black, 348, 42, maohao, 16, 16);
+        display_digit(blue, 348, 58, P, 8, 16);   
+        display_word(blue, 348, 106, _P, 8, 16);
+        display_word(blue, 348, 114, A, 8, 16);
  
-            // 湿度
-            display_word(black, 322, 10, shi, 16, 16);
-            display_word(black, 322, 26, du, 16, 16);
-            display_word(black, 322, 42, maohao, 16, 16);
-            display_digit(blue, 322, 58, Hum, 8, 16);
-            display_word(blue, 322, 90, baifenhao, 8, 16);
+        // 湿度
+        display_word(black, 322, 10, shi, 16, 16);
+        display_word(black, 322, 26, du, 16, 16);
+        display_word(black, 322, 42, maohao, 16, 16);
+        display_digit(blue, 322, 58, Hum, 8, 16);
+        display_word(blue, 322, 90, baifenhao, 8, 16);
             
-            // 海拔
-            display_word(black, 372, 10, hai, 16, 16);
-            display_word(black, 372, 26, ba, 16, 16);
-            display_word(black, 372, 42, maohao, 16, 16);
-            display_digit(blue, 372, 58, H, 8, 16);  
-            display_word(blue, 372, 82, M, 8, 16);
+        // 海拔
+        display_word(black, 372, 10, hai, 16, 16);
+        display_word(black, 372, 26, ba, 16, 16);
+        display_word(black, 372, 42, maohao, 16, 16);
+        display_digit(blue, 372, 58, H, 8, 16);  
+        display_word(blue, 372, 82, M, 8, 16);
     }
     
     close(fd);
     return 0;
+}
+
+
+// 显示姓名班级学号等信息
+void display_info()
+{
+	display_word(0x0a0a0a,125,16,chen, 16, 16);//名字
+	display_word(0x0a0a0a,125,32,ton,16, 16);
+	display_word(0x0a0a0a,125,48,xin,16,16);
+	
+	display_word(0x0a0a0a,145,32,tong1,16,16);//班级
+	display_word(0x0a0a0a,145,48,yi,16,16);
+	display_word(0x0a0a0a,145,64,maohao,16,16);
+    
+	display_digit(blue,145,80,16408200126LL,8,16);//学号
+	
+	display_word(0x0a0a0a,173,16,chen,16,16);//名字
+	display_word(0x0a0a0a,173,32,xin,16,16);
+	display_word(0x0a0a0a,173,48,yu,16,16);
+	
+	display_word(0x0a0a0a,193,32,tong1,16,16);//班级
+	display_word(0x0a0a0a,193,48,er,16,16);
+	display_word(0x0a0a0a,193,64,maohao,16,16);
+	
+	display_digit(blue,193,80,16408200218LL,8,16);//学号
+	
+	display_word(0x0a0a0a,221,16,mei,16,16);//名字
+	display_word(0x0a0a0a,221,32,miao,16,16);
+	
+	display_word(0x0a0a0a,241,32,tong1,16,16);//班级
+	display_word(0x0a0a0a,241,48,yi,16,16);
+	display_word(0x0a0a0a,241,64,maohao,16,16);
+	
+	display_digit(blue,241,80, 16408200143LL,8,16);//学号
+	
+	display_word(0x0a0a0a,25,216,zhi,48,48);//智能家居系统
+	display_word(0x0a0a0a,25,280,neng,48,48);
+	display_word(0x0a0a0a,25,344,jia,48,48);
+	display_word(0x0a0a0a,25,408,ju,48,48);
+	display_word(0x0a0a0a,25,472,xi,48,48);
+	display_word(0x0a0a0a,25,536,tong,48,48);
+	display_word(0x0a0a0a,25,536,tong,48,48);
 }
 
 int main()
@@ -488,72 +617,32 @@ int main()
         return 0;
     }
      
-    p = mmap(NULL, 480*800*4, PROT_READ | PROT_WRITE, MAP_SHARED, lcd_fd, 0);
+    p = mmap(NULL, 480*800*4, PROT_READ | PROT_WRITE, MAP_SHARED, lcd_fd, 0);   // 映射屏幕帧缓冲文件到内存，加快读写速度
     display_bg(0, 0, 480, 800, white);
 
-	display_word(0x0a0a0a,125,16,chen, 16, 16);//名字
-	display_word(0x0a0a0a,125,32,ton,16, 16);
-	display_word(0x0a0a0a,125,48,xin,16,16);
-	
-	display_word(0x0a0a0a,145,32,tong1,16,16);//班级
-	display_word(0x0a0a0a,145,48,yi,16,16);
-	display_word(0x0a0a0a,145,64,maohao,16,16);
+
+    display_info();
     
-	display_digit(0x0000ee,145,80,26,8,16);//学号
-	
-	display_word(0x0a0a0a,173,16,chen,16,16);//名字
-	display_word(0x0a0a0a,173,32,xin,16,16);
-	display_word(0x0a0a0a,173,48,yu,16,16);
-	
-	display_word(0x0a0a0a,193,32,tong1,16,16);//班级
-	display_word(0x0a0a0a,193,48,er,16,16);
-	display_word(0x0a0a0a,193,64,maohao,16,16);
-	
-	display_digit(0x0000ee,193,80,18,8,16);//学号
-	
-	display_word(0x0a0a0a,221,16,mei,16,16);//名字
-	display_word(0x0a0a0a,221,32,miao,16,16);
-	
-	display_word(0x0a0a0a,241,32,tong1,16,16);//班级
-	display_word(0x0a0a0a,241,48,yi,16,16);
-	display_word(0x0a0a0a,241,64,maohao,16,16);
-	
-	display_digit(0x0000ee,241,80, 43,8,16);//学号
-	
-	display_word(0x0a0a0a,25,216,zhi,48,48);//智能家居系统
-	display_word(0x0a0a0a,25,280,neng,48,48);
-	display_word(0x0a0a0a,25,344,jia,48,48);
-	display_word(0x0a0a0a,25,408,ju,48,48);
-	display_word(0x0a0a0a,25,472,xi,48,48);
-	display_word(0x0a0a0a,25,536,tong,48,48);
-
-
     pthread_t t0, t1, t2;
     
-    /*if(pthread_create(&t0, NULL, yanwu, NULL) == -1)
+    if(pthread_create(&t0, NULL, yanwu, NULL) == -1)
     {
         perror("fail to create pthread t0\n");
         return -1;
-    }*/
+    }
     if(pthread_create(&t1, NULL, gy_39, NULL) == -1)
     {
         perror("fail to create pthread t1\n");
         return -1;
     }
-    /*
-    struct ts *ts_sp = malloc(sizeof(struct ts));
-    ts_read(50, 400,ts_sp);
-    */
     if(pthread_create(&t2, NULL, ts_read, NULL) == -1)
     {
         perror("fail to create pthread t2\n");
         return -1;
     }
-    
+    pthread_join(t0, NULL);
     pthread_join(t1, NULL);
     pthread_join(t2, NULL);
-    
-    
     
     munmap(p, 480*800*4);
     close(lcd_fd);
