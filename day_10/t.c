@@ -21,10 +21,11 @@
 /*
 p ，整型指针，屏幕帧缓冲驱动文件内存映射后的指针
 toggle 整型，LED 灯手动开关控制标志
+led_status 灯泡状态，1 为开启状态，0 为关闭状态
 red blue gray black white 整型，RGB 颜色
 picture 字符型数组指针，存储所有图片路径
 */
-int * p, toggle = 0 ,red = 0x00FF0000, blue = 0x000000FF,gray = 0x00AFBFCF, black = 0x001F2F3F, white = 0x00FFFFFF;
+int * p, toggle = 0 , led_status = 0,red = 0x00FF0000, blue = 0x000000FF,gray = 0x00AFBFCF, black = 0x001F2F3F, white = 0x00FFFFFF;
 char * picture[] = {"/hut/1.bmp","/hut/2.bmp", "/hut/3.bmp", "/hut/4.bmp", "/hut/5.bmp", "/hut/6.bmp"}; 
 
 /*  画点函数
@@ -220,7 +221,7 @@ void * ts_read(void *arg)
     struct ts start, end; 
     display_bg(x0, y0, 480, 800, white);
     display_picture(x0, y0, picture[i]);
-    display_circle(400, 0, 440, 50, 30, gray);        // 显示 LED 灯开关
+    display_circle(400, 0, 440, 50, 30, blue);        // 显示 LED 灯开关
 
     while(1)
     {
@@ -257,7 +258,7 @@ void * ts_read(void *arg)
         // 手指离开屏幕后进行数据处理
         if(buf.type == EV_KEY && buf.code == BTN_TOUCH && buf.value == 0)
         {
-            if(start.x >= 400 && start.y >= 120)    // 限制只有在图片区域的滑动才能切换图片
+            if(start.x >= 400 && start.y >= 120 && (abs(end.x - start.x) >= 10 || abs(end.y - start.y) >= 10))    // 限制只能在图片区域且滑动距离大于 10 个像素点才切换图片
             {
                 if(abs(end.x - start.x) > abs(end.y - start.y))     // 判断左右滑
                 {
@@ -330,22 +331,34 @@ void * ts_read(void *arg)
         // LED 手动开关
         if(start.x >= 0 && end.x <= 100 && start.y >= 400 && end.y <= 480)
         {
-            toggle = ~toggle;
+            // printf("toggle = %d ", toggle); 
+            // printf("led_status = %d ", led_status); 
+            toggle++;
             
-            if(toggle)
+            if(toggle == 1 || toggle == 2)
             {
-                printf("toggle = %d\n", toggle);
-                display_picture(130, 200, "/hut/on.bmp");
-                usleep(500);
-                display_circle(400, 0, 440, 50, 30, red);        // LED 灯开关打开
+				if(led_status)
+				{
+                    led_status = 0;
+					display_picture(130, 200, "/hut/off.bmp");
+					usleep(500);
+					display_circle(400, 0, 440, 50, 30, gray);        // LED 灯手动开关关闭
+				}
+				else
+				{
+                    led_status = 1;
+					display_picture(130, 200, "/hut/on.bmp");
+					usleep(500);
+					display_circle(400, 0, 440, 50, 30, red);        // LED 灯手动开关打开
+				}
             }
-            else
+            if(toggle == 3)
             {
-                printf("toggle = %d\n", toggle);
-                display_picture(130, 200, "/hut/off.bmp");
-                usleep(500);
-                display_circle(400, 0, 440, 50, 30, gray);        // LED 灯开关关闭
-            }        
+                toggle = 0;
+                // printf("auto ");
+                display_circle(400, 0, 440, 50, 30, blue);        // LED 灯自动开关
+            }   
+            // printf("toggle = %d\n", toggle); 
         }
         
         start.x = -1;
@@ -510,12 +523,14 @@ void * gy_39(void *arg)
         sleep(1);
         
         // 当关照强度低于一定值且手动开关关闭时打开灯
-        if(Lux < 6 && toggle == 0)
+        if(Lux < 20 && toggle == 0)
         {
+            led_status = 1;
             display_picture(130, 200, "/hut/on.bmp");
         }
-        else if(Lux >= 6 && toggle == 0)
+        else if(Lux >= 20 && toggle == 0)
         {
+            led_status = 0;
             display_picture(130, 200, "/hut/off.bmp");
         }
             
