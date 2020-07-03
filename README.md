@@ -1,4 +1,4 @@
-# GEC_smart_home
+# GEC_SmartHome
 
 GEC 智能家居生产实习。使用的设备为 GEC6818 arm 开发板，开发环境为 Ubuntu 14.04
 
